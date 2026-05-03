@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import { NewsItem, NewsFrontmatter } from "../../types/news";
+import { parseDigestMarkdown, DailyDigest } from "./parser";
 
 const newsDirectory = path.join(process.cwd(), "content", "news");
 
@@ -58,4 +59,17 @@ export function getAllSlugs(): string[] {
     .readdirSync(newsDirectory)
     .filter((fileName) => fileName.endsWith(".md"))
     .map((fileName) => fileName.replace(/\.md$/, ""));
+}
+
+export function getAllDigests(): DailyDigest[] {
+  const newsList = getAllNews();
+  return newsList.map((news) =>
+    parseDigestMarkdown(news.slug, news.frontmatter, news.content)
+  );
+}
+
+export function getDigestBySlug(slug: string): DailyDigest | null {
+  const news = getNewsBySlug(slug);
+  if (!news) return null;
+  return parseDigestMarkdown(news.slug, news.frontmatter, news.content);
 }
