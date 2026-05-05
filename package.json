@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sync:daily-news": "node scripts/sync-daily-news.mjs"
   },
   "dependencies": {
     "@tailwindcss/typography": "^0.5.19",

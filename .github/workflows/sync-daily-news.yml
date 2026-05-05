@@ -1,0 +1,60 @@
+name: Sync daily news
+
+on:
+  schedule:
+    # 08:30 Asia/Shanghai
+    - cron: "30 0 * * *"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Optional date override, YYYY-MM-DD"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-daily-news
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate news markdown
+        env:
+          AGENT_SERVER_URL: ${{ secrets.AGENT_SERVER_URL }}
+          AGENT_SERVER_TOKEN: ${{ secrets.AGENT_SERVER_TOKEN }}
+          NEWS_GENERATION_PROMPT: ${{ vars.NEWS_GENERATION_PROMPT }}
+          NEWS_DATE: ${{ inputs.date }}
+        run: node scripts/sync-daily-news.mjs
+
+      - name: Validate build
+        run: npm run build -- --webpack
+
+      - name: Commit generated news
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add content/news/*.md
+          if git diff --cached --quiet; then
+            echo "No news changes to commit."
+            exit 0
+          fi
+          git commit -m "chore: sync daily news"
+          git push

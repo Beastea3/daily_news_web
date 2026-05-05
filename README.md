@@ -1,34 +1,79 @@
 # Daily Tech & Business News
 
-每日科技商业新闻站点，基于 Next.js + Markdown + Vercel。
+A concise daily technology and business briefing built with Next.js, Markdown,
+and Vercel.
 
-- **域名**: https://daily.monstea.cn
-- **技术栈**: Next.js 16 / React 19 / Tailwind CSS v4 / TypeScript
-- **内容**: Markdown 文件存储于 `content/news/`
-- **部署**: Vercel 自动构建
-- **点赞**: Upstash Redis (最小计算资源)
+- **Site**: https://daily.monstea.cn
+- **Stack**: Next.js 16 / React 19 / Tailwind CSS v4 / TypeScript
+- **Content**: Markdown files in `content/news/`
+- **Deployment**: Vercel deploys automatically from pushes to `main`
+- **Likes**: Upstash Redis
 
-## 本地开发
+## Local Development
 
 ```bash
 npm install
 npm run dev
 ```
 
-## 添加新闻
+The local development server may need webpack because this project has a
+Turbopack root override:
 
-在 `content/news/YYYY-MM-DD.md` 创建 Markdown 文件：
-
-```markdown
----
-title: "新闻标题"
-date: "2026-05-03"
-category: "AI"
-source: "来源"
-summary: "摘要"
----
-
-正文...
+```bash
+npx next dev --webpack
 ```
 
-push 到仓库后 Vercel 自动部署。
+## Daily News Sync
+
+The scheduled GitHub Actions workflow in
+`.github/workflows/sync-daily-news.yml` calls an agent server, receives JSON,
+converts it to `content/news/YYYY-MM-DD.md`, validates the build, and commits
+the generated file to `main`. Vercel then deploys from that push.
+
+Required GitHub repository secret:
+
+```text
+AGENT_SERVER_URL=https://your-agent-server.example.com/generate
+```
+
+Optional GitHub repository secret:
+
+```text
+AGENT_SERVER_TOKEN=...
+```
+
+Optional GitHub repository variable:
+
+```text
+NEWS_GENERATION_PROMPT=Generate today's daily technology and business news digest...
+```
+
+Expected agent JSON shape:
+
+```json
+{
+  "title": "Daily Tech News",
+  "date": "2026-05-03",
+  "category": "AI",
+  "source": "TechCrunch, The Verge",
+  "summary": "Scanned 1200 articles and selected the most relevant stories.",
+  "totalScanned": 1200,
+  "sections": [
+    {
+      "name": "🤖 AI / ML",
+      "articles": [
+        {
+          "title": "Article Title",
+          "url": "https://example.com",
+          "summary": "One sentence summary.",
+          "source": "TechCrunch",
+          "importance": 4
+        }
+      ]
+    }
+  ]
+}
+```
+
+You can also run the workflow manually from GitHub Actions and provide a
+`YYYY-MM-DD` date override.

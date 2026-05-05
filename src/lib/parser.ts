@@ -113,9 +113,13 @@ export function parseDigestMarkdown(
     i++;
   }
 
-  // Try to extract total scanned from summary or intro
-  const totalMatch = frontmatter.summary?.match(/扫描了\s*\*\*(\d+)\*\*/);
-  const totalScanned = totalMatch ? parseInt(totalMatch[1], 10) : articles.length;
+  // Try to extract total scanned from summary or intro.
+  const totalMatch = frontmatter.summary?.match(
+    /(?:扫描了|Scanned)\s*\*\*(\d+)\*\*|Scanned\s+(\d+)/
+  );
+  const totalScanned = totalMatch
+    ? parseInt(totalMatch[1] || totalMatch[2], 10)
+    : articles.length;
 
   return {
     slug,

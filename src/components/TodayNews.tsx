@@ -49,12 +49,14 @@ export default function TodayNews({ digests }: TodayNewsProps) {
 
   const dateItems = useMemo(
     () =>
-      digests.map((d) => ({
-        slug: d.slug,
-        date: d.date,
-        category: d.category,
-        articleCount: d.articles.length,
-      })),
+      [...digests]
+        .reverse()
+        .map((d) => ({
+          slug: d.slug,
+          date: d.date,
+          category: d.category,
+          articleCount: d.articles.length,
+        })),
     [digests]
   );
 
