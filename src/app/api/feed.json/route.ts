@@ -18,10 +18,10 @@ export async function GET() {
   const feed = {
     version: "https://jsonfeed.org/version/1.1",
     title: "Daily Tech & Business News",
-    description: "每日科技商业新闻精选，覆盖 AI、创投、政策与硬件",
+    description: "A concise daily briefing on technology and business.",
     home_page_url: siteUrl,
     feed_url: `${siteUrl}/api/feed.json`,
-    language: "zh-CN",
+    language: "en-US",
     items,
   };
 

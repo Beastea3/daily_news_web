@@ -7,6 +7,11 @@ export interface ArticleItem {
   category: string;
 }
 
+export interface DigestSection {
+  name: string;
+  articles: ArticleItem[];
+}
+
 export interface DailyDigest {
   slug: string;
   date: string;
@@ -15,6 +20,7 @@ export interface DailyDigest {
   summary: string;
   totalScanned: number;
   articles: ArticleItem[];
+  sections: DigestSection[];
 }
 
 const SECTION_MAP: Record<string, string> = {
@@ -31,7 +37,9 @@ export function parseDigestMarkdown(
   content: string
 ): DailyDigest {
   const articles: ArticleItem[] = [];
+  const sections: DigestSection[] = [];
   let currentCategory = frontmatter.category || "综合";
+  let currentSection: DigestSection | null = null;
 
   const lines = content.split("\n");
   let i = 0;
@@ -44,6 +52,11 @@ export function parseDigestMarkdown(
     if (sectionMatch) {
       const sectionName = sectionMatch[1].trim();
       currentCategory = SECTION_MAP[sectionName] || sectionName;
+      currentSection = {
+        name: sectionName,
+        articles: [],
+      };
+      sections.push(currentSection);
       i++;
       continue;
     }
@@ -74,14 +87,24 @@ export function parseDigestMarkdown(
         j++;
       }
 
-      articles.push({
+      const article = {
         title,
         url,
         summary,
         source,
         importance,
         category: currentCategory,
-      });
+      };
+
+      articles.push(article);
+      if (!currentSection) {
+        currentSection = {
+          name: currentCategory,
+          articles: [],
+        };
+        sections.push(currentSection);
+      }
+      currentSection.articles.push(article);
 
       i = j;
       continue;
@@ -102,5 +125,6 @@ export function parseDigestMarkdown(
     summary: frontmatter.summary || "",
     totalScanned,
     articles,
+    sections,
   };
 }

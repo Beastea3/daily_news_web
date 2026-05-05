@@ -10,8 +10,8 @@ export async function GET() {
   <channel>
     <title>Daily Tech &amp; Business News</title>
     <link>${siteUrl}</link>
-    <description>每日科技商业新闻精选，覆盖 AI、创投、政策与硬件</description>
-    <language>zh-CN</language>
+    <description>A concise daily briefing on technology and business.</description>
+    <language>en-US</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
     <atom:link href="${siteUrl}/rss.xml" rel="self" type="application/rss+xml" />
     ${newsList

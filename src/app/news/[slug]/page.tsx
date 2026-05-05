@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getAllNews, getNewsBySlug } from "../../../lib/news";
 import { markdownToHtml } from "../../../lib/markdown";
 import { format } from "date-fns";
-import { zhCN } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 import NewsContent from "../../../components/NewsContent";
 import LikeButton from "../../../components/LikeButton";
 import ShareButton from "../../../components/ShareButton";
@@ -11,6 +11,18 @@ import ShareButton from "../../../components/ShareButton";
 interface Props {
   params: Promise<{ slug: string }>;
 }
+
+const CATEGORY_LABELS: Record<string, string> = {
+  AI: "AI",
+  研究: "Research",
+  创投: "Startups",
+  科技: "Technology",
+  政策: "Policy",
+  财经: "Business",
+  硬件: "Hardware",
+  其他: "Other",
+  综合: "Briefing",
+};
 
 export async function generateStaticParams() {
   const newsList = getAllNews();
@@ -47,16 +59,18 @@ export default async function NewsPage({ params }: Props) {
   }
 
   const html = await markdownToHtml(news.content);
-  const formattedDate = format(new Date(news.frontmatter.date), "yyyy年MM月dd日", {
-    locale: zhCN,
+  const formattedDate = format(new Date(news.frontmatter.date), "MMMM d, yyyy", {
+    locale: enUS,
   });
+  const category =
+    CATEGORY_LABELS[news.frontmatter.category] ?? news.frontmatter.category;
 
   return (
     <article>
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-3">
           <span className="text-sm font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200">
-            {news.frontmatter.category}
+            {category}
           </span>
           <time className="text-sm text-gray-500 dark:text-gray-400">
             {formattedDate}

@@ -2,7 +2,7 @@
 
 import { NewsItem } from "../../types/news";
 import { format } from "date-fns";
-import { zhCN } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 
 interface NewsCardProps {
   news: NewsItem;
@@ -10,8 +10,8 @@ interface NewsCardProps {
 
 export default function NewsCard({ news }: NewsCardProps) {
   const { slug, frontmatter } = news;
-  const formattedDate = format(new Date(frontmatter.date), "yyyy年MM月dd日", {
-    locale: zhCN,
+  const formattedDate = format(new Date(frontmatter.date), "MMM d, yyyy", {
+    locale: enUS,
   });
 
   const categoryColors: Record<string, string> = {
@@ -20,6 +20,13 @@ export default function NewsCard({ news }: NewsCardProps) {
     政策: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
     财经: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
     硬件: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+  };
+  const categoryLabels: Record<string, string> = {
+    AI: "AI",
+    创投: "Startups",
+    政策: "Policy",
+    财经: "Business",
+    硬件: "Hardware",
   };
 
   return (
@@ -31,7 +38,7 @@ export default function NewsCard({ news }: NewsCardProps) {
             "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
           }`}
         >
-          {frontmatter.category}
+          {categoryLabels[frontmatter.category] ?? frontmatter.category}
         </span>
         <time className="text-xs text-gray-500 dark:text-gray-400">
           {formattedDate}

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type RefCallback } from "react";
 import { format, parseISO } from "date-fns";
-import { zhCN } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 
 interface DateItem {
   slug: string;
@@ -15,131 +15,178 @@ interface DateWheelProps {
   dates: DateItem[];
   selectedSlug: string;
   onSelect: (slug: string) => void;
-  onClose: () => void;
-  isOpen: boolean;
 }
 
 export default function DateWheel({
   dates,
   selectedSlug,
   onSelect,
-  onClose,
-  isOpen,
 }: DateWheelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [tempSelected, setTempSelected] = useState(selectedSlug);
+  const itemRefs = useRef(new Map<string, HTMLButtonElement>());
+  const scrollTimerRef = useRef<number | null>(null);
+  const programmaticScrollRef = useRef(false);
+  const [sideSpacer, setSideSpacer] = useState(0);
 
   useEffect(() => {
-    if (isOpen) {
-      setTempSelected(selectedSlug);
-      // Scroll to selected after animation
-      setTimeout(() => {
-        const el = document.getElementById(`date-item-${selectedSlug}`);
-        if (el && scrollRef.current) {
-          const container = scrollRef.current;
-          const scrollTop =
-            el.offsetTop - container.clientHeight / 2 + el.clientHeight / 2;
-          container.scrollTo({ top: scrollTop, behavior: "instant" });
-        }
-      }, 100);
+    const container = scrollRef.current;
+    if (!container) {
+      return;
     }
-  }, [isOpen, selectedSlug]);
 
-  if (!isOpen) return null;
+    const updateSpacer = () => {
+      const selectedItem =
+        itemRefs.current.get(selectedSlug) ?? itemRefs.current.values().next().value;
+      const itemWidth = selectedItem?.clientWidth ?? 64;
+      setSideSpacer(Math.max(0, (container.clientWidth - itemWidth) / 2));
+    };
 
-  const handleSelect = (slug: string) => {
-    setTempSelected(slug);
-    onSelect(slug);
-    onClose();
+    updateSpacer();
+    const resizeObserver = new ResizeObserver(updateSpacer);
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
+  }, [selectedSlug]);
+
+  useEffect(() => {
+    const el = itemRefs.current.get(selectedSlug);
+    const container = scrollRef.current;
+    if (!el || !container) {
+      return;
+    }
+
+    programmaticScrollRef.current = true;
+    if (scrollTimerRef.current) {
+      window.clearTimeout(scrollTimerRef.current);
+    }
+
+    const scrollLeft =
+      el.offsetLeft - container.clientWidth / 2 + el.clientWidth / 2;
+    container.scrollTo({ left: scrollLeft, behavior: "smooth" });
+
+    const timeoutId = window.setTimeout(() => {
+      programmaticScrollRef.current = false;
+    }, 450);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [selectedSlug]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollTimerRef.current) {
+        window.clearTimeout(scrollTimerRef.current);
+      }
+    };
+  }, []);
+
+  const setItemRef =
+    (slug: string): RefCallback<HTMLButtonElement> =>
+    (node) => {
+      if (node) {
+        itemRefs.current.set(slug, node);
+      } else {
+        itemRefs.current.delete(slug);
+      }
+    };
+
+  const selectCenteredDate = () => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const center = container.scrollLeft + container.clientWidth / 2;
+    let closestSlug = selectedSlug;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    itemRefs.current.forEach((button, slug) => {
+      const itemCenter = button.offsetLeft + button.clientWidth / 2;
+      const distance = Math.abs(itemCenter - center);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestSlug = slug;
+      }
+    });
+
+    if (closestSlug !== selectedSlug) {
+      onSelect(closestSlug);
+    }
+  };
+
+  const handleScroll = () => {
+    if (programmaticScrollRef.current) {
+      return;
+    }
+
+    if (scrollTimerRef.current) {
+      window.clearTimeout(scrollTimerRef.current);
+    }
+
+    scrollTimerRef.current = window.setTimeout(selectCenteredDate, 120);
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col justify-end">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-ink/30 backdrop-blur-sm"
-        onClick={onClose}
-      />
+    <section className="relative mt-4" aria-label="Choose a news date">
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-14 bg-gradient-to-r from-canvas via-canvas/90 to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-14 bg-gradient-to-l from-canvas via-canvas/90 to-transparent" />
+      <div className="pointer-events-none absolute left-1/2 top-3 bottom-3 z-10 w-px -translate-x-1/2 bg-ink/12" />
+      <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border border-ink/10 bg-canvas/30 shadow-[0_0_24px_rgba(10,10,10,0.08)]" />
 
-      {/* Sheet */}
-      <div className="relative bg-canvas rounded-t-3xl shadow-2xl max-h-[70vh] flex flex-col animate-slide-up">
-        {/* Handle bar */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-hairline" />
-        </div>
-
-        {/* Header */}
-        <div className="px-6 pb-3 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-ink">历史推送</h3>
-          <button
-            onClick={onClose}
-            className="text-sm font-medium text-muted hover:text-ink transition-colors px-3 py-1 rounded-lg hover:bg-surface-soft"
-          >
-            完成
-          </button>
-        </div>
-
-        {/* Divider */}
-        <div className="mx-6 h-px bg-hairline-soft" />
-
-        {/* Date list - scrollable */}
+      <div className="relative overflow-hidden rounded-xl border border-hairline-soft bg-canvas/70 py-2 shadow-sm">
+        <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-hairline-soft" />
         <div
           ref={scrollRef}
-          className="flex-1 overflow-y-auto px-6 py-4 space-y-1 scrollbar-hide"
-          style={{ scrollSnapType: "y mandatory" }}
+          onScroll={handleScroll}
+          className="scrollbar-hide relative flex gap-1 overflow-x-auto py-1 snap-x snap-mandatory"
+          style={{ scrollPaddingInline: sideSpacer }}
         >
+          <div
+            className="shrink-0"
+            style={{ width: sideSpacer }}
+            aria-hidden="true"
+          />
           {dates.map((item) => {
-            const isSelected = tempSelected === item.slug;
+            const isSelected = selectedSlug === item.slug;
             const dateObj = parseISO(item.date);
 
             return (
               <button
                 key={item.slug}
-                id={`date-item-${item.slug}`}
-                onClick={() => handleSelect(item.slug)}
-                className={`w-full text-left rounded-2xl px-4 py-3.5 transition-all duration-200 scroll-snap-start ${
+                ref={setItemRef(item.slug)}
+                type="button"
+                onClick={() => onSelect(item.slug)}
+                aria-pressed={isSelected}
+                className={`group flex w-[64px] shrink-0 snap-center flex-col items-center rounded-lg px-2 py-1.5 transition-all duration-300 ease-out ${
                   isSelected
-                    ? "bg-ink text-white shadow-lg scale-[1.02]"
-                    : "bg-surface-card text-ink hover:bg-surface-strong"
+                    ? "text-ink scale-110"
+                    : "text-muted hover:text-ink"
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold">
-                      {format(dateObj, "MM月dd日", { locale: zhCN })}
-                    </span>
-                    <span
-                      className={`text-xs ${
-                        isSelected ? "text-white/70" : "text-muted"
-                      }`}
-                    >
-                      {format(dateObj, "EEEE", { locale: zhCN })}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full ${
-                        isSelected
-                          ? "bg-white/20 text-white"
-                          : "bg-canvas text-muted"
-                      }`}
-                    >
-                      {item.category}
-                    </span>
-                    <span
-                      className={`text-xs ${
-                        isSelected ? "text-white/60" : "text-muted-soft"
-                      }`}
-                    >
-                      {item.articleCount} 条
-                    </span>
-                  </div>
-                </div>
+                <span
+                  className={`text-[11px] font-medium transition-colors duration-300 ${
+                    isSelected ? "text-ink" : "text-muted-soft"
+                  }`}
+                >
+                  {format(dateObj, "EEE", { locale: enUS })}
+                </span>
+                <span className="mt-0.5 text-sm font-semibold leading-none">
+                  {format(dateObj, "dd", { locale: enUS })}
+                </span>
+                <span
+                  className={`mt-2 rounded-full transition-all duration-300 ${
+                    isSelected
+                      ? "h-2 w-2 bg-brand-coral shadow-[0_0_0_4px_rgba(255,107,90,0.16)]"
+                      : "h-1.5 w-1.5 bg-muted-soft/50 group-hover:bg-brand-coral/70"
+                  }`}
+                  aria-hidden="true"
+                />
               </button>
             );
           })}
+          <div
+            className="shrink-0"
+            style={{ width: sideSpacer }}
+            aria-hidden="true"
+          />
         </div>
       </div>
-    </div>
+    </section>
   );
 }

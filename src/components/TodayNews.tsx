@@ -1,168 +1,202 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { zhCN } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 import DateWheel from "./DateWheel";
 import type { DailyDigest } from "../lib/parser";
-
-const BRAND_CARDS = [
-  { bg: "bg-brand-pink", label: "text-white/80" },
-  { bg: "bg-brand-teal", label: "text-white/80" },
-  { bg: "bg-brand-lavender", label: "text-ink/70" },
-  { bg: "bg-brand-peach", label: "text-ink/70" },
-  { bg: "bg-brand-ochre", label: "text-ink/70" },
-  { bg: "bg-brand-mint", label: "text-ink/70" },
-];
-
-function getCardStyle(category: string, index: number) {
-  const map: Record<string, number> = {
-    AI: 0,
-    研究: 0,
-    创投: 1,
-    科技: 3,
-    政策: 4,
-    财经: 3,
-    硬件: 5,
-    其他: 2,
-    综合: 2,
-  };
-  const idx = map[category] ?? (index % BRAND_CARDS.length);
-  return BRAND_CARDS[idx] ?? { bg: "bg-surface-card", label: "text-muted" };
-}
 
 interface TodayNewsProps {
   digests: DailyDigest[];
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  AI: "AI",
+  研究: "Research",
+  创投: "Startups",
+  科技: "Technology",
+  政策: "Policy",
+  财经: "Business",
+  硬件: "Hardware",
+  其他: "Other",
+  综合: "Briefing",
+};
+
+function getCategoryLabel(category: string) {
+  return CATEGORY_LABELS[category] ?? category;
+}
+
+function getDateParamSlug(digests: DailyDigest[]) {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  const dateParam = new URLSearchParams(window.location.search).get("date");
+  if (!dateParam) {
+    return "";
+  }
+
+  return (
+    digests.find((digest) => digest.slug === dateParam || digest.date === dateParam)
+      ?.slug ?? ""
+  );
+}
+
 export default function TodayNews({ digests }: TodayNewsProps) {
-  const [selectedSlug, setSelectedSlug] = useState(digests[0]?.slug ?? "");
-  const [wheelOpen, setWheelOpen] = useState(false);
+  const [selectedSlug, setSelectedSlug] = useState(
+    () => digests[0]?.slug || ""
+  );
+
+  const dateItems = useMemo(
+    () =>
+      digests.map((d) => ({
+        slug: d.slug,
+        date: d.date,
+        category: d.category,
+        articleCount: d.articles.length,
+      })),
+    [digests]
+  );
+
+  const handleSelectDate = useCallback(
+    (slug: string) => {
+      setSelectedSlug(slug);
+
+      const selectedDigest = digests.find((digest) => digest.slug === slug);
+      if (!selectedDigest || typeof window === "undefined") {
+        return;
+      }
+
+      const url = new URL(window.location.href);
+      if (slug === digests[0]?.slug) {
+        url.searchParams.delete("date");
+      } else {
+        url.searchParams.set("date", selectedDigest.date);
+      }
+
+      window.history.pushState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    },
+    [digests]
+  );
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setSelectedSlug(getDateParamSlug(digests) || digests[0]?.slug || "");
+    };
+
+    handlePopState();
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [digests]);
 
   const current = digests.find((d) => d.slug === selectedSlug) ?? digests[0];
 
   if (!current) {
-    return (
-      <div className="text-center py-20 text-muted">暂无新闻内容</div>
-    );
+    return <div className="py-20 text-center text-muted">No brief is available yet.</div>;
   }
 
-  const formattedDate = format(parseISO(current.date), "yyyy年MM月dd日 EEEE", {
-    locale: zhCN,
+  const formattedDate = format(parseISO(current.date), "EEEE, MMMM d, yyyy", {
+    locale: enUS,
   });
-  const card = getCardStyle(current.category, 0);
   const isToday = selectedSlug === digests[0]?.slug;
-
-  const dateItems = digests.map((d) => ({
-    slug: d.slug,
-    date: d.date,
-    category: d.category,
-    articleCount: d.articles.length,
-  }));
 
   return (
     <div>
-      {/* Date header + history button */}
-      <div className="mb-8 flex items-end justify-between flex-wrap gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
+      <div className="mb-5">
+        <div className="flex flex-col gap-3 border-b border-hairline-soft pb-6">
+          <div className="flex flex-wrap items-center gap-3">
             <h1
-              className="text-[clamp(32px,4.5vw,48px)] font-medium leading-[1.05] tracking-[-1.5px] text-ink"
+              className="font-display text-[clamp(34px,5vw,56px)] font-normal leading-[1.02] text-ink"
             >
-              {isToday ? "今日新闻" : "历史推送"}
+              {isToday ? "Today’s Brief" : "Daily Archive"}
             </h1>
             {isToday && (
-              <span className="text-xs font-semibold tracking-[1.5px] uppercase px-2.5 py-1 rounded-full bg-brand-coral text-white">
+              <span className="rounded-full border border-hairline bg-surface-card px-2.5 py-1 text-[11px] font-medium uppercase text-muted shadow-sm">
                 TODAY
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            <time className="text-sm font-medium text-muted">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+            <time className="font-medium text-body">
               {formattedDate}
             </time>
-            <span className="text-xs text-muted-soft">
-              {current.articles.length} 条精选 · 扫描 {current.totalScanned} 篇
+            <span className="text-muted-soft">/</span>
+            <span>
+              {current.articles.length} selected stories
+            </span>
+            <span className="text-muted-soft">/</span>
+            <span>
+              {current.totalScanned} scanned
             </span>
           </div>
         </div>
-
-        <button
-          onClick={() => setWheelOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-ink text-white text-sm font-semibold rounded-xl hover:bg-primary-active transition-colors"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <polyline points="12 6 12 12 16 14"/>
-          </svg>
-          选择日期
-        </button>
       </div>
 
-      {/* Main card */}
-      <section className={`${card.bg} rounded-3xl overflow-hidden`}>
-        {/* Category label */}
-        <div className="px-8 pt-6 pb-2">
-          <span className={`text-xs font-semibold tracking-[1.5px] uppercase ${card.label}`}>
-            {current.category}
-          </span>
-        </div>
-
-        {/* Articles list */}
-        <div className="px-2 pb-2">
-          <div className="bg-canvas rounded-2xl overflow-hidden">
-            {current.articles.map((article, aidx) => (
-              <article
-                key={aidx}
-                className={`px-6 py-4 ${
-                  aidx > 0 ? "border-t border-hairline-soft" : ""
-                } hover:bg-surface-soft/50 transition-colors`}
-              >
-                <div className="flex items-start gap-3">
-                  <span
-                    className={`mt-0.5 text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                      article.importance >= 4
-                        ? "bg-brand-coral text-white"
-                        : "bg-surface-card text-muted"
-                    }`}
-                  >
-                    {article.importance}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <a
-                      href={article.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[15px] font-semibold text-ink hover:text-primary-active transition-colors line-clamp-1"
-                    >
-                      {article.title}
-                    </a>
-                    <p className="mt-1 text-sm text-body line-clamp-2 leading-relaxed">
-                      {article.summary}
-                    </p>
-                    <div className="mt-1.5 flex items-center gap-2 text-xs text-muted">
-                      <span>{article.source}</span>
-                      <span>·</span>
-                      <span className="px-1.5 py-0.5 rounded-full bg-surface-card text-muted">
-                        {article.category}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Date Wheel */}
       <DateWheel
         dates={dateItems}
         selectedSlug={selectedSlug}
-        onSelect={setSelectedSlug}
-        onClose={() => setWheelOpen(false)}
-        isOpen={wheelOpen}
+        onSelect={handleSelectDate}
       />
+
+      <div className="mt-7 space-y-5">
+        {current.sections.map((section) => (
+          <section
+            key={section.name}
+            className="overflow-hidden rounded-xl border border-hairline-soft bg-surface-card shadow-sm"
+          >
+            <div className="flex items-center justify-between border-b border-hairline-soft px-5 py-3">
+              <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
+                <span className="h-2 w-2 rounded-full bg-brand-coral" />
+                {section.name}
+              </h2>
+              <span className="text-xs text-muted-soft">
+                {section.articles.length} stories
+              </span>
+            </div>
+
+            <div>
+              {section.articles.map((article, aidx) => (
+                <article
+                  key={`${article.url}-${aidx}`}
+                  className={`px-5 py-4 transition-colors hover:bg-surface-soft/65 ${
+                    aidx > 0 ? "border-t border-hairline-soft" : ""
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span
+                      className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold ${
+                        article.importance >= 4
+                          ? "bg-brand-coral/10 text-brand-coral"
+                          : "bg-surface-soft text-muted"
+                      }`}
+                    >
+                      {article.importance}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <a
+                        href={article.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="line-clamp-1 text-[15px] font-semibold text-ink transition-colors hover:text-primary-active hover:underline"
+                      >
+                        {article.title}
+                      </a>
+                      <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-body">
+                        {article.summary}
+                      </p>
+                      <div className="mt-2 flex items-center gap-2 text-xs text-muted">
+                        <span>{article.source}</span>
+                        <span className="text-muted-soft">/</span>
+                        <span>{getCategoryLabel(article.category)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }
