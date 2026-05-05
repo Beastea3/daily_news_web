@@ -13,6 +13,28 @@ function getEnv(name, fallback = "") {
   return process.env[name] || fallback;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getPositiveIntegerEnv(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
+function sanitizeUrl(url) {
+  try {
+    const parsedUrl = new URL(url);
+    return `${parsedUrl.origin}${parsedUrl.pathname}`;
+  } catch {
+    return "[invalid url]";
+  }
+}
+
+function previewText(text) {
+  return text.replace(/\s+/g, " ").trim().slice(0, 500);
+}
+
 function getShanghaiDate() {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Shanghai",
@@ -213,23 +235,62 @@ async function fetchDigest() {
   const token = getEnv("AGENT_SERVER_TOKEN");
   const date = getEnv("NEWS_DATE");
   const body = date ? JSON.stringify({ date }) : undefined;
+  const attempts = getPositiveIntegerEnv("AGENT_REQUEST_ATTEMPTS", 3);
+  const retryDelayMs = getPositiveIntegerEnv("AGENT_RETRY_DELAY_MS", 30000);
 
-  const response = await fetch(agentUrl, {
-    method: "POST",
-    headers: {
-      ...(body ? { "Content-Type": "application/json" } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body,
-  });
+  console.log("::group::Agent request");
+  console.log(`URL: ${sanitizeUrl(agentUrl)}`);
+  console.log("Method: POST");
+  console.log(`Authorization header: ${token ? "present" : "missing"}`);
+  console.log(`Body: ${body ? body : "<empty>"}`);
+  console.log(`Attempts: ${attempts}`);
+  console.log(`Retry delay: ${retryDelayMs}ms`);
+  console.log("::endgroup::");
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Agent server returned ${response.status}: ${text}`);
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const startedAt = Date.now();
+    console.log(`Agent request attempt ${attempt}/${attempts} started.`);
+    const response = await fetch(agentUrl, {
+      method: "POST",
+      headers: {
+        ...(body ? { "Content-Type": "application/json" } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body,
+    });
+    const elapsedMs = Date.now() - startedAt;
+    const responseText = await response.text();
+    const responsePreview = previewText(responseText);
+
+    console.log("::group::Agent response");
+    console.log(`Attempt: ${attempt}/${attempts}`);
+    console.log(`Status: ${response.status} ${response.statusText}`);
+    console.log(`Elapsed: ${elapsedMs}ms`);
+    console.log(`Content-Type: ${response.headers.get("content-type") || "unknown"}`);
+    console.log(`Body preview: ${responsePreview || "<empty>"}`);
+    console.log("::endgroup::");
+
+    if (response.ok) {
+      return JSON.parse(responseText);
+    }
+
+    const retryable = [502, 503, 504].includes(response.status);
+
+    if (!retryable || attempt === attempts) {
+      throw new Error(
+        `Agent server returned ${response.status} on attempt ${attempt}/${attempts}: ${responsePreview}`
+      );
+    }
+
+    console.warn(
+      `Agent server returned ${response.status} on attempt ${attempt}/${attempts}; retrying in ${Math.round(
+        retryDelayMs / 1000
+      )}s.`
+    );
+    await sleep(retryDelayMs);
   }
 
-  const payload = await response.json();
-  return payload;
+  throw new Error("Agent request failed before receiving a response");
 }
 
 const digest = validateDigest(await fetchDigest());

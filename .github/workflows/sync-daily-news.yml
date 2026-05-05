@@ -36,6 +36,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Show sync configuration
+        env:
+          AGENT_SERVER_URL: ${{ secrets.AGENT_SERVER_URL }}
+          AGENT_SERVER_TOKEN: ${{ secrets.AGENT_SERVER_TOKEN }}
+          NEWS_DATE: ${{ inputs.date }}
+        run: |
+          echo "::group::Sync configuration"
+          node - <<'NODE'
+          const url = process.env.AGENT_SERVER_URL || "";
+          let safeUrl = "[missing]";
+          try {
+            const parsed = new URL(url);
+            safeUrl = `${parsed.origin}${parsed.pathname}`;
+          } catch {}
+          console.log(`AGENT_SERVER_URL: ${safeUrl}`);
+          console.log(`AGENT_SERVER_TOKEN: ${process.env.AGENT_SERVER_TOKEN ? "present" : "missing"}`);
+          console.log(`NEWS_DATE: ${process.env.NEWS_DATE || "<empty>"}`);
+          console.log(`AGENT_REQUEST_ATTEMPTS: ${process.env.AGENT_REQUEST_ATTEMPTS || "3"}`);
+          console.log(`AGENT_RETRY_DELAY_MS: ${process.env.AGENT_RETRY_DELAY_MS || "30000"}`);
+          NODE
+          echo "::endgroup::"
+
       - name: Generate news markdown
         env:
           AGENT_SERVER_URL: ${{ secrets.AGENT_SERVER_URL }}
