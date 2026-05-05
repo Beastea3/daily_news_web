@@ -42,12 +42,6 @@ Optional GitHub repository secret:
 AGENT_SERVER_TOKEN=...
 ```
 
-Optional GitHub repository variable:
-
-```text
-NEWS_GENERATION_PROMPT=Generate today's daily technology and business news digest...
-```
-
 Expected agent JSON shape:
 
 ```json

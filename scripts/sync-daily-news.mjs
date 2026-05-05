@@ -1,32 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const DEFAULT_PROMPT = `Generate today's daily technology and business news digest.
-
-Return JSON only with this shape:
-{
-  "title": "Daily Tech News",
-  "date": "YYYY-MM-DD",
-  "category": "AI",
-  "source": "Comma-separated source names",
-  "summary": "One concise sentence.",
-  "totalScanned": 0,
-  "sections": [
-    {
-      "name": "🤖 AI / ML",
-      "articles": [
-        {
-          "title": "Article Title",
-          "url": "https://...",
-          "summary": "One sentence summary, enriched from source content when available, under 6 sentences.",
-          "source": "TechCrunch",
-          "importance": 4
-        }
-      ]
-    }
-  ]
-}`;
-
 const SECTION_CATEGORY_MAP = new Map([
   ["🤖 AI / ML", "AI"],
   ["💼 Business & Startups", "Startups"],
@@ -237,16 +211,16 @@ async function fetchDigest() {
 
   const agentUrl = assertString(getEnv("AGENT_SERVER_URL"), "AGENT_SERVER_URL");
   const token = getEnv("AGENT_SERVER_TOKEN");
-  const prompt = getEnv("NEWS_GENERATION_PROMPT", DEFAULT_PROMPT);
-  const date = getEnv("NEWS_DATE", getShanghaiDate());
+  const date = getEnv("NEWS_DATE");
+  const body = date ? JSON.stringify({ date }) : undefined;
 
   const response = await fetch(agentUrl, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      ...(body ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ prompt, date }),
+    body,
   });
 
   if (!response.ok) {

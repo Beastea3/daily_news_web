@@ -40,7 +40,6 @@ jobs:
         env:
           AGENT_SERVER_URL: ${{ secrets.AGENT_SERVER_URL }}
           AGENT_SERVER_TOKEN: ${{ secrets.AGENT_SERVER_TOKEN }}
-          NEWS_GENERATION_PROMPT: ${{ vars.NEWS_GENERATION_PROMPT }}
           NEWS_DATE: ${{ inputs.date }}
         run: node scripts/sync-daily-news.mjs
 
