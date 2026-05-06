@@ -3,7 +3,7 @@ name: Sync daily news
 on:
   schedule:
     # 08:30 Asia/Shanghai
-    - cron: "30 0 * * *"
+    - cron: "19 22 * * *"
   workflow_dispatch:
     inputs:
       date:
