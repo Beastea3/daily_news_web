@@ -47,10 +47,12 @@ export default function DateWheel({
     return () => resizeObserver.disconnect();
   }, [selectedSlug]);
 
+  const isFirstScrollRef = useRef(true);
+
   useEffect(() => {
     const el = itemRefs.current.get(selectedSlug);
     const container = scrollRef.current;
-    if (!el || !container) {
+    if (!el || !container || sideSpacer === 0) {
       return;
     }
 
@@ -61,14 +63,16 @@ export default function DateWheel({
 
     const scrollLeft =
       el.offsetLeft - container.clientWidth / 2 + el.clientWidth / 2;
-    container.scrollTo({ left: scrollLeft, behavior: "smooth" });
+    const behavior = isFirstScrollRef.current ? "instant" : "smooth";
+    container.scrollTo({ left: scrollLeft, behavior });
+    isFirstScrollRef.current = false;
 
     const timeoutId = window.setTimeout(() => {
       programmaticScrollRef.current = false;
     }, 450);
 
     return () => window.clearTimeout(timeoutId);
-  }, [selectedSlug]);
+  }, [selectedSlug, sideSpacer]);
 
   useEffect(() => {
     return () => {

@@ -183,7 +183,7 @@ export default function TodayNews({ digests }: TodayNewsProps) {
                       >
                         {article.title}
                       </a>
-                      <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-body">
+                      <p className="mt-1 text-sm leading-relaxed text-body">
                         {article.summary}
                       </p>
                       <div className="mt-2 flex items-center gap-2 text-xs text-muted">
