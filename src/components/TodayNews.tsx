@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { enUS } from "date-fns/locale";
 import DateWheel from "./DateWheel";
@@ -81,7 +81,7 @@ export default function TodayNews({ digests }: TodayNewsProps) {
     [digests]
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const handlePopState = () => {
       setSelectedSlug(getDateParamSlug(digests) || digests[0]?.slug || "");
     };

@@ -35,13 +35,17 @@ function previewText(text) {
   return text.replace(/\s+/g, " ").trim().slice(0, 500);
 }
 
-function getShanghaiDate() {
+function getUtcMinus8Date() {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Shanghai",
+    timeZone: "Etc/GMT+8",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+}
+
+function getNewsDate() {
+  return getEnv("NEWS_DATE", getUtcMinus8Date());
 }
 
 function assertString(value, label) {
@@ -85,7 +89,7 @@ function normalizeAgentPayload(payload) {
   return parseMaybeJson(candidate, "agent digest");
 }
 
-function validateDigest(rawDigest) {
+function validateDigest(rawDigest, newsDate) {
   rawDigest = normalizeAgentPayload(rawDigest);
 
   if (!rawDigest || typeof rawDigest !== "object") {
@@ -96,9 +100,12 @@ function validateDigest(rawDigest) {
     throw new Error("Agent response must include at least one section");
   }
 
-  const date = assertString(rawDigest.date || getEnv("NEWS_DATE", getShanghaiDate()), "date");
+  const date = assertString(newsDate || rawDigest.date || getNewsDate(), "date");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     throw new Error(`date must use YYYY-MM-DD format, got ${date}`);
+  }
+  if (typeof rawDigest.date === "string" && rawDigest.date.trim() && rawDigest.date.trim() !== date) {
+    console.warn(`Agent digest date ${rawDigest.date.trim()} was normalized to ${date}.`);
   }
 
   const sections = rawDigest.sections.map((section, sectionIndex) => {
@@ -225,7 +232,7 @@ ${body}
 `;
 }
 
-async function fetchDigest() {
+async function fetchDigest(newsDate) {
   const responseFile = getEnv("AGENT_RESPONSE_FILE");
   if (responseFile) {
     return JSON.parse(await readFile(responseFile, "utf8"));
@@ -233,8 +240,7 @@ async function fetchDigest() {
 
   const agentUrl = assertString(getEnv("AGENT_SERVER_URL"), "AGENT_SERVER_URL");
   const token = getEnv("AGENT_SERVER_TOKEN");
-  const date = getEnv("NEWS_DATE");
-  const body = date ? JSON.stringify({ date }) : undefined;
+  const body = JSON.stringify({ date: newsDate });
   const attempts = getPositiveIntegerEnv("AGENT_REQUEST_ATTEMPTS", 3);
   const retryDelayMs = getPositiveIntegerEnv("AGENT_RETRY_DELAY_MS", 30000);
 
@@ -242,7 +248,8 @@ async function fetchDigest() {
   console.log(`URL: ${sanitizeUrl(agentUrl)}`);
   console.log("Method: POST");
   console.log(`Authorization header: ${token ? "present" : "missing"}`);
-  console.log(`Body: ${body ? body : "<empty>"}`);
+  console.log("Default date timezone: UTC-8");
+  console.log(`Body: ${body}`);
   console.log(`Attempts: ${attempts}`);
   console.log(`Retry delay: ${retryDelayMs}ms`);
   console.log("::endgroup::");
@@ -253,7 +260,7 @@ async function fetchDigest() {
     const response = await fetch(agentUrl, {
       method: "POST",
       headers: {
-        ...(body ? { "Content-Type": "application/json" } : {}),
+        "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body,
@@ -293,7 +300,8 @@ async function fetchDigest() {
   throw new Error("Agent request failed before receiving a response");
 }
 
-const digest = validateDigest(await fetchDigest());
+const newsDate = getNewsDate();
+const digest = validateDigest(await fetchDigest(newsDate), newsDate);
 const markdown = renderMarkdown(digest);
 const outputDir = path.join(process.cwd(), "content", "news");
 const outputPath = path.join(outputDir, `${digest.date}.md`);

@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefCallback } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type RefCallback,
+} from "react";
 import { format, parseISO } from "date-fns";
 import { enUS } from "date-fns/locale";
 
@@ -26,33 +31,13 @@ export default function DateWheel({
   const itemRefs = useRef(new Map<string, HTMLButtonElement>());
   const scrollTimerRef = useRef<number | null>(null);
   const programmaticScrollRef = useRef(false);
-  const [sideSpacer, setSideSpacer] = useState(0);
+  const hasCenteredOnceRef = useRef(false);
+  const sideSpacer = "max(0px, calc((100% - 64px) / 2))";
 
-  useEffect(() => {
-    const container = scrollRef.current;
-    if (!container) {
-      return;
-    }
-
-    const updateSpacer = () => {
-      const selectedItem =
-        itemRefs.current.get(selectedSlug) ?? itemRefs.current.values().next().value;
-      const itemWidth = selectedItem?.clientWidth ?? 64;
-      setSideSpacer(Math.max(0, (container.clientWidth - itemWidth) / 2));
-    };
-
-    updateSpacer();
-    const resizeObserver = new ResizeObserver(updateSpacer);
-    resizeObserver.observe(container);
-    return () => resizeObserver.disconnect();
-  }, [selectedSlug]);
-
-  const isFirstScrollRef = useRef(true);
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = itemRefs.current.get(selectedSlug);
     const container = scrollRef.current;
-    if (!el || !container || sideSpacer === 0) {
+    if (!el || !container) {
       return;
     }
 
@@ -63,16 +48,18 @@ export default function DateWheel({
 
     const scrollLeft =
       el.offsetLeft - container.clientWidth / 2 + el.clientWidth / 2;
-    const behavior = isFirstScrollRef.current ? "instant" : "smooth";
-    container.scrollTo({ left: scrollLeft, behavior });
-    isFirstScrollRef.current = false;
+    container.scrollTo({
+      left: scrollLeft,
+      behavior: hasCenteredOnceRef.current ? "smooth" : "auto",
+    });
+    hasCenteredOnceRef.current = true;
 
     const timeoutId = window.setTimeout(() => {
       programmaticScrollRef.current = false;
     }, 450);
 
     return () => window.clearTimeout(timeoutId);
-  }, [selectedSlug, sideSpacer]);
+  }, [dates.length, selectedSlug]);
 
   useEffect(() => {
     return () => {

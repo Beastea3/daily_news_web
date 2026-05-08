@@ -2,7 +2,7 @@ name: Sync daily news
 
 on:
   schedule:
-    # 08:30 Asia/Shanghai
+    # 06:19 Asia/Shanghai, using UTC-8 as the news date boundary.
     - cron: "19 22 * * *"
   workflow_dispatch:
     inputs:
@@ -52,7 +52,14 @@ jobs:
           } catch {}
           console.log(`AGENT_SERVER_URL: ${safeUrl}`);
           console.log(`AGENT_SERVER_TOKEN: ${process.env.AGENT_SERVER_TOKEN ? "present" : "missing"}`);
-          console.log(`NEWS_DATE: ${process.env.NEWS_DATE || "<empty>"}`);
+          const defaultDate = new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Etc/GMT+8",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }).format(new Date());
+          console.log("Default date timezone: UTC-8");
+          console.log(`NEWS_DATE: ${process.env.NEWS_DATE || defaultDate}`);
           console.log(`AGENT_REQUEST_ATTEMPTS: ${process.env.AGENT_REQUEST_ATTEMPTS || "3"}`);
           console.log(`AGENT_RETRY_DELAY_MS: ${process.env.AGENT_RETRY_DELAY_MS || "30000"}`);
           NODE
