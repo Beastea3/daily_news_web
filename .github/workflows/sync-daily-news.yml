@@ -41,6 +41,9 @@ jobs:
           AGENT_SERVER_URL: ${{ secrets.AGENT_SERVER_URL }}
           AGENT_SERVER_TOKEN: ${{ secrets.AGENT_SERVER_TOKEN }}
           NEWS_DATE: ${{ inputs.date }}
+          AGENT_JOB_TIMEOUT_MS: ${{ vars.AGENT_JOB_TIMEOUT_MS }}
+          AGENT_POLL_INTERVAL_MS: ${{ vars.AGENT_POLL_INTERVAL_MS }}
+          AGENT_MAX_RETRY_AFTER_MS: ${{ vars.AGENT_MAX_RETRY_AFTER_MS }}
         run: |
           echo "::group::Sync configuration"
           node - <<'NODE'
@@ -60,8 +63,9 @@ jobs:
           }).format(new Date());
           console.log("Default date timezone: UTC-8");
           console.log(`NEWS_DATE: ${process.env.NEWS_DATE || defaultDate}`);
-          console.log(`AGENT_REQUEST_ATTEMPTS: ${process.env.AGENT_REQUEST_ATTEMPTS || "3"}`);
-          console.log(`AGENT_RETRY_DELAY_MS: ${process.env.AGENT_RETRY_DELAY_MS || "30000"}`);
+          console.log(`AGENT_JOB_TIMEOUT_MS: ${process.env.AGENT_JOB_TIMEOUT_MS || "900000"}`);
+          console.log(`AGENT_POLL_INTERVAL_MS: ${process.env.AGENT_POLL_INTERVAL_MS || "15000"}`);
+          console.log(`AGENT_MAX_RETRY_AFTER_MS: ${process.env.AGENT_MAX_RETRY_AFTER_MS || "60000"}`);
           NODE
           echo "::endgroup::"
 
@@ -70,6 +74,9 @@ jobs:
           AGENT_SERVER_URL: ${{ secrets.AGENT_SERVER_URL }}
           AGENT_SERVER_TOKEN: ${{ secrets.AGENT_SERVER_TOKEN }}
           NEWS_DATE: ${{ inputs.date }}
+          AGENT_JOB_TIMEOUT_MS: ${{ vars.AGENT_JOB_TIMEOUT_MS }}
+          AGENT_POLL_INTERVAL_MS: ${{ vars.AGENT_POLL_INTERVAL_MS }}
+          AGENT_MAX_RETRY_AFTER_MS: ${{ vars.AGENT_MAX_RETRY_AFTER_MS }}
         run: node scripts/sync-daily-news.mjs
 
       - name: Validate build
