@@ -43,6 +43,11 @@ function resolveAgentUrl(baseUrl, maybeRelativeUrl) {
   }
 }
 
+function shouldRetryAgentError(error) {
+  const message = String(error?.message || error || "");
+  return /not valid json/i.test(message) || /agent result failed with 5\d\d/i.test(message);
+}
+
 async function readResponse(response, label) {
   const text = await response.text();
   const preview = previewText(text);
@@ -258,7 +263,7 @@ ${body}
 `;
 }
 
-async function fetchDigest(newsDate) {
+async function fetchDigest(newsDate, attempt = 1) {
   const responseFile = getEnv("AGENT_RESPONSE_FILE");
   if (responseFile) {
     return JSON.parse(await readFile(responseFile, "utf8"));
@@ -267,6 +272,7 @@ async function fetchDigest(newsDate) {
   const agentUrl = assertString(getEnv("AGENT_SERVER_URL"), "AGENT_SERVER_URL");
   const token = getEnv("AGENT_SERVER_TOKEN");
   const body = JSON.stringify({ date: newsDate });
+  const maxAttempts = getPositiveIntegerEnv("AGENT_MAX_ATTEMPTS", 2);
   const timeoutMs = getPositiveIntegerEnv("AGENT_JOB_TIMEOUT_MS", 900000);
   const pollIntervalMs = getPositiveIntegerEnv("AGENT_POLL_INTERVAL_MS", 15000);
   const maxRetryAfterMs = getPositiveIntegerEnv("AGENT_MAX_RETRY_AFTER_MS", 60000);
@@ -275,112 +281,123 @@ async function fetchDigest(newsDate) {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
-  console.log("::group::Agent request");
-  console.log(`URL: ${sanitizeUrl(agentUrl)}`);
-  console.log("Method: POST");
-  console.log(`Authorization header: ${token ? "present" : "missing"}`);
-  console.log("Default date timezone: UTC-8");
-  console.log(`Body: ${body}`);
-  console.log(`Job timeout: ${timeoutMs}ms`);
-  console.log(`Poll interval: ${pollIntervalMs}ms`);
-  console.log("::endgroup::");
-
-  const startedAt = Date.now();
-  const startResponse = await fetch(agentUrl, {
-    method: "POST",
-    headers,
-    body,
-  });
-  const startElapsedMs = Date.now() - startedAt;
-  const startBody = await readResponse(startResponse, "Agent start response");
-
-  console.log("::group::Agent start response");
-  console.log(`Status: ${startResponse.status} ${startResponse.statusText}`);
-  console.log(`Elapsed: ${startElapsedMs}ms`);
-  console.log(`Content-Type: ${startResponse.headers.get("content-type") || "unknown"}`);
-  console.log(`Body preview: ${startBody.preview || "<empty>"}`);
-  console.log("::endgroup::");
-
-  if (startResponse.status !== 202) {
-    if (startResponse.ok && startBody.json) {
-      console.warn("Agent returned a digest directly; using direct response.");
-      return startBody.json;
-    }
-
-    throw new Error(
-      `Agent job start failed with ${startResponse.status}: ${startBody.preview || "<empty>"}`
-    );
-  }
-
-  const job = startBody.json;
-  const jobId = assertString(job?.jobId, "jobId");
-  const statusUrl = job?.statusUrl
-    ? resolveAgentUrl(agentUrl, job.statusUrl)
-    : resolveAgentUrl(agentUrl, `./${jobId}`);
-  const resultUrl = job?.resultUrl
-    ? resolveAgentUrl(agentUrl, job.resultUrl)
-    : resolveAgentUrl(agentUrl, `./${jobId}/result.json`);
-
-  console.log("::group::Agent job");
-  console.log(`Job ID: ${jobId}`);
-  console.log(`Initial status: ${job?.status || "unknown"}`);
-  console.log(`Status URL: ${sanitizeUrl(statusUrl)}`);
-  console.log(`Result URL: ${sanitizeUrl(resultUrl)}`);
-  console.log("::endgroup::");
-
-  let pollCount = 0;
-  while (Date.now() - startedAt < timeoutMs) {
-    pollCount += 1;
-    const pollStartedAt = Date.now();
-    const resultResponse = await fetch(resultUrl, { headers });
-    const resultElapsedMs = Date.now() - pollStartedAt;
-    const resultBody = await readResponse(resultResponse, "Agent result response");
-
-    console.log("::group::Agent result poll");
-    console.log(`Poll: ${pollCount}`);
-    console.log(`Status: ${resultResponse.status} ${resultResponse.statusText}`);
-    console.log(`Elapsed: ${resultElapsedMs}ms`);
-    console.log(`Content-Type: ${resultResponse.headers.get("content-type") || "unknown"}`);
-    console.log(`Body preview: ${resultBody.preview || "<empty>"}`);
+  try {
+    console.log("::group::Agent request");
+    console.log(`Attempt: ${attempt}/${maxAttempts}`);
+    console.log(`URL: ${sanitizeUrl(agentUrl)}`);
+    console.log("Method: POST");
+    console.log(`Authorization header: ${token ? "present" : "missing"}`);
+    console.log("Default date timezone: UTC-8");
+    console.log(`Body: ${body}`);
+    console.log(`Job timeout: ${timeoutMs}ms`);
+    console.log(`Poll interval: ${pollIntervalMs}ms`);
     console.log("::endgroup::");
 
-    if (resultResponse.status === 202) {
-      const status = await logAgentStatus(statusUrl, headers, pollCount);
-      const statusValue = String(status?.status || "").toLowerCase();
-      if (["failed", "failure", "error"].includes(statusValue)) {
-        throw new Error(
-          `Agent job ${jobId} failed: ${status?.error || status?.message || "unknown error"}`
+    const startedAt = Date.now();
+    const startResponse = await fetch(agentUrl, {
+      method: "POST",
+      headers,
+      body,
+    });
+    const startElapsedMs = Date.now() - startedAt;
+    const startBody = await readResponse(startResponse, "Agent start response");
+
+    console.log("::group::Agent start response");
+    console.log(`Status: ${startResponse.status} ${startResponse.statusText}`);
+    console.log(`Elapsed: ${startElapsedMs}ms`);
+    console.log(`Content-Type: ${startResponse.headers.get("content-type") || "unknown"}`);
+    console.log(`Body preview: ${startBody.preview || "<empty>"}`);
+    console.log("::endgroup::");
+
+    if (startResponse.status !== 202) {
+      if (startResponse.ok && startBody.json) {
+        console.warn("Agent returned a digest directly; using direct response.");
+        return startBody.json;
+      }
+
+      throw new Error(
+        `Agent job start failed with ${startResponse.status}: ${startBody.preview || "<empty>"}`
+      );
+    }
+
+    const job = startBody.json;
+    const jobId = assertString(job?.jobId, "jobId");
+    const statusUrl = job?.statusUrl
+      ? resolveAgentUrl(agentUrl, job.statusUrl)
+      : resolveAgentUrl(agentUrl, `./${jobId}`);
+    const resultUrl = job?.resultUrl
+      ? resolveAgentUrl(agentUrl, job.resultUrl)
+      : resolveAgentUrl(agentUrl, `./${jobId}/result.json`);
+
+    console.log("::group::Agent job");
+    console.log(`Job ID: ${jobId}`);
+    console.log(`Initial status: ${job?.status || "unknown"}`);
+    console.log(`Status URL: ${sanitizeUrl(statusUrl)}`);
+    console.log(`Result URL: ${sanitizeUrl(resultUrl)}`);
+    console.log("::endgroup::");
+
+    let pollCount = 0;
+    while (Date.now() - startedAt < timeoutMs) {
+      pollCount += 1;
+      const pollStartedAt = Date.now();
+      const resultResponse = await fetch(resultUrl, { headers });
+      const resultElapsedMs = Date.now() - pollStartedAt;
+      const resultBody = await readResponse(resultResponse, "Agent result response");
+
+      console.log("::group::Agent result poll");
+      console.log(`Poll: ${pollCount}`);
+      console.log(`Status: ${resultResponse.status} ${resultResponse.statusText}`);
+      console.log(`Elapsed: ${resultElapsedMs}ms`);
+      console.log(`Content-Type: ${resultResponse.headers.get("content-type") || "unknown"}`);
+      console.log(`Body preview: ${resultBody.preview || "<empty>"}`);
+      console.log("::endgroup::");
+
+      if (resultResponse.status === 202) {
+        const status = await logAgentStatus(statusUrl, headers, pollCount);
+        const statusValue = String(status?.status || "").toLowerCase();
+        if (["failed", "failure", "error"].includes(statusValue)) {
+          throw new Error(
+            `Agent job ${jobId} failed: ${status?.error || status?.message || "unknown error"}`
+          );
+        }
+
+        const retryAfterHeader = Number(resultResponse.headers.get("retry-after"));
+        const retryAfterSeconds = Number(resultBody.json?.retryAfterSeconds);
+        const requestedDelayMs =
+          Number.isFinite(retryAfterHeader) && retryAfterHeader > 0
+            ? retryAfterHeader * 1000
+            : Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+              ? retryAfterSeconds * 1000
+              : pollIntervalMs;
+        const delayMs = Math.min(Math.max(requestedDelayMs, 1000), maxRetryAfterMs);
+
+        console.log(
+          `Agent job ${jobId} is still running; polling again in ${Math.round(delayMs / 1000)}s.`
         );
+        await sleep(delayMs);
+        continue;
       }
 
-      const retryAfterHeader = Number(resultResponse.headers.get("retry-after"));
-      const retryAfterSeconds = Number(resultBody.json?.retryAfterSeconds);
-      const requestedDelayMs =
-        Number.isFinite(retryAfterHeader) && retryAfterHeader > 0
-          ? retryAfterHeader * 1000
-          : Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-            ? retryAfterSeconds * 1000
-            : pollIntervalMs;
-      const delayMs = Math.min(Math.max(requestedDelayMs, 1000), maxRetryAfterMs);
-
-      console.log(`Agent job ${jobId} is still running; polling again in ${Math.round(delayMs / 1000)}s.`);
-      await sleep(delayMs);
-      continue;
-    }
-
-    if (resultResponse.ok) {
-      if (!resultBody.json) {
-        throw new Error("Agent result response did not include JSON");
+      if (resultResponse.ok) {
+        if (!resultBody.json) {
+          throw new Error("Agent result response did not include JSON");
+        }
+        return resultBody.json;
       }
-      return resultBody.json;
+
+      throw new Error(
+        `Agent result failed with ${resultResponse.status}: ${resultBody.preview || "<empty>"}`
+      );
     }
 
-    throw new Error(
-      `Agent result failed with ${resultResponse.status}: ${resultBody.preview || "<empty>"}`
-    );
+    throw new Error(`Agent job ${jobId} did not finish within ${Math.round(timeoutMs / 1000)}s`);
+  } catch (error) {
+    if (attempt >= maxAttempts || !shouldRetryAgentError(error)) {
+      throw error;
+    }
+    console.warn(`Agent attempt ${attempt}/${maxAttempts} failed with malformed output. Retrying.`);
+    return fetchDigest(newsDate, attempt + 1);
   }
-
-  throw new Error(`Agent job ${jobId} did not finish within ${Math.round(timeoutMs / 1000)}s`);
 }
 
 async function logAgentStatus(statusUrl, headers, pollCount) {
