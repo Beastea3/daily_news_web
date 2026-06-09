@@ -395,7 +395,9 @@ async function fetchDigest(newsDate, attempt = 1) {
     if (attempt >= maxAttempts || !shouldRetryAgentError(error)) {
       throw error;
     }
-    console.warn(`Agent attempt ${attempt}/${maxAttempts} failed with malformed output. Retrying.`);
+    console.warn(
+      `Agent attempt ${attempt}/${maxAttempts} failed with retryable error: ${String(error?.message || error)}. Retrying.`
+    );
     return fetchDigest(newsDate, attempt + 1);
   }
 }
