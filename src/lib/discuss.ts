@@ -14,6 +14,33 @@ export type AgentActionResult = {
   showClaudeFallback?: boolean;
 };
 
+const CHATGPT_BASE_URL = "https://chatgpt.com/";
+
+/**
+ * ChatGPT reads long / multiline prompts from the URL hash, not ?q= query params.
+ * See: https://dev.to/vast-cow/how-to-bypass-issues-with-long-draft-messages-in-chatgpt-urls-2ffb
+ */
+export function buildChatGptUrl(prompt: string): string {
+  const encoded = encodeURIComponent(prompt);
+
+  if (prompt.includes("\n") || encoded.length > 240) {
+    return `${CHATGPT_BASE_URL}#?prompt=${encoded}`;
+  }
+
+  return `${CHATGPT_BASE_URL}?prompt=${encoded}`;
+}
+
+function openExternalUrl(url: string) {
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.target = "_blank";
+  anchor.rel = "noopener noreferrer";
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+}
+
 export function buildDiscussPrompt(story: StoryForPrompt): string {
   const title = story.title?.trim() || "Untitled story";
   const source = story.source?.trim() || "Unknown";
@@ -89,11 +116,7 @@ export async function continueWithAgent(
   }
 
   if (provider === "chatgpt") {
-    window.open(
-      `https://chatgpt.com/?q=${encodeURIComponent(prompt)}`,
-      "_blank",
-      "noopener,noreferrer"
-    );
+    openExternalUrl(buildChatGptUrl(prompt));
 
     const copied = await copyToClipboard(prompt);
     return {

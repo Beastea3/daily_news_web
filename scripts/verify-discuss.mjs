@@ -66,13 +66,30 @@ assert(
   "missing summary should fallback"
 );
 
+function buildChatGptUrl(prompt) {
+  const encoded = encodeURIComponent(prompt);
+
+  if (prompt.includes("\n") || encoded.length > 240) {
+    return `https://chatgpt.com/#?prompt=${encoded}`;
+  }
+
+  return `https://chatgpt.com/?prompt=${encoded}`;
+}
+
 const encoded = encodeURIComponent(fullPrompt);
 assert(
   encoded.includes("OpenAI%20ships%20a%20new%20model"),
   "chatgpt url encoding should work"
 );
 
-const chatgptUrl = `https://chatgpt.com/?q=${encoded}`;
-assert(chatgptUrl.startsWith("https://chatgpt.com/?q="), "chatgpt url should be formed");
+const chatgptUrl = buildChatGptUrl(fullPrompt);
+assert(
+  chatgptUrl.startsWith("https://chatgpt.com/#?prompt="),
+  "multiline prompts should use hash prompt url"
+);
+assert(chatgptUrl.includes("OpenAI%20ships%20a%20new%20model"), "chatgpt url should include title");
+
+const shortUrl = buildChatGptUrl("Hello");
+assert(shortUrl === "https://chatgpt.com/?prompt=Hello", "short prompts use query param");
 
 console.log("verify-discuss: all checks passed");
