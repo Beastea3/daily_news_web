@@ -66,8 +66,12 @@ assert(
   "missing summary should fallback"
 );
 
-function buildChatGptUrl(prompt) {
+function buildChatGptUrl(prompt, mobile = false) {
   const encoded = encodeURIComponent(prompt);
+
+  if (mobile) {
+    return `https://chatgpt.com/?q=${encoded}`;
+  }
 
   if (prompt.includes("\n") || encoded.length > 240) {
     return `https://chatgpt.com/#?prompt=${encoded}`;
@@ -82,14 +86,21 @@ assert(
   "chatgpt url encoding should work"
 );
 
-const chatgptUrl = buildChatGptUrl(fullPrompt);
+const chatgptUrl = buildChatGptUrl(fullPrompt, false);
 assert(
   chatgptUrl.startsWith("https://chatgpt.com/#?prompt="),
-  "multiline prompts should use hash prompt url"
+  "desktop multiline prompts should use hash prompt url"
 );
 assert(chatgptUrl.includes("OpenAI%20ships%20a%20new%20model"), "chatgpt url should include title");
 
-const shortUrl = buildChatGptUrl("Hello");
-assert(shortUrl === "https://chatgpt.com/?prompt=Hello", "short prompts use query param");
+const mobileUrl = buildChatGptUrl(fullPrompt, true);
+assert(
+  mobileUrl.startsWith("https://chatgpt.com/?q="),
+  "mobile prompts should use q query param for app handoff"
+);
+assert(!mobileUrl.includes("#"), "mobile url should not use hash");
+
+const shortUrl = buildChatGptUrl("Hello", false);
+assert(shortUrl === "https://chatgpt.com/?prompt=Hello", "short desktop prompts use query param");
 
 console.log("verify-discuss: all checks passed");

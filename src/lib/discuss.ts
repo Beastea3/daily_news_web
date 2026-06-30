@@ -16,12 +16,24 @@ export type AgentActionResult = {
 
 const CHATGPT_BASE_URL = "https://chatgpt.com/";
 
+export function isMobileDevice(): boolean {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
 /**
- * ChatGPT reads long / multiline prompts from the URL hash, not ?q= query params.
- * See: https://dev.to/vast-cow/how-to-bypass-issues-with-long-draft-messages-in-chatgpt-urls-2ffb
+ * Desktop: long / multiline prompts use the hash so the web UI can prefill.
+ * Mobile: keep ?q= query params so universal links can open the native app.
  */
-export function buildChatGptUrl(prompt: string): string {
+export function buildChatGptUrl(prompt: string, mobile = isMobileDevice()): string {
   const encoded = encodeURIComponent(prompt);
+
+  if (mobile) {
+    return `${CHATGPT_BASE_URL}?q=${encoded}`;
+  }
 
   if (prompt.includes("\n") || encoded.length > 240) {
     return `${CHATGPT_BASE_URL}#?prompt=${encoded}`;
@@ -39,6 +51,19 @@ function openExternalUrl(url: string) {
   document.body.appendChild(anchor);
   anchor.click();
   document.body.removeChild(anchor);
+}
+
+function openChatGpt(prompt: string) {
+  const mobile = isMobileDevice();
+  const url = buildChatGptUrl(prompt, mobile);
+
+  if (mobile) {
+    // Same-window navigation lets iOS/Android intercept chatgpt.com universal links.
+    window.location.assign(url);
+    return;
+  }
+
+  openExternalUrl(url);
 }
 
 export function buildDiscussPrompt(story: StoryForPrompt): string {
@@ -116,9 +141,18 @@ export async function continueWithAgent(
   }
 
   if (provider === "chatgpt") {
-    openExternalUrl(buildChatGptUrl(prompt));
-
+    const mobile = isMobileDevice();
     const copied = await copyToClipboard(prompt);
+    openChatGpt(prompt);
+
+    if (mobile) {
+      return {
+        message: copied
+          ? "Prompt copied. Opening ChatGPT…"
+          : "Opening ChatGPT…",
+      };
+    }
+
     return {
       message: copied
         ? "Opening ChatGPT. Prompt copied as fallback."
