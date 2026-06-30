@@ -4,6 +4,7 @@ import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { enUS } from "date-fns/locale";
 import DateWheel from "./DateWheel";
+import DiscussMenu from "./DiscussMenu";
 import type { DailyDigest } from "../lib/parser";
 
 interface TodayNewsProps {
@@ -186,10 +187,20 @@ export default function TodayNews({ digests }: TodayNewsProps) {
                       <p className="mt-1 text-sm leading-relaxed text-body">
                         {article.summary}
                       </p>
-                      <div className="mt-2 flex items-center gap-2 text-xs text-muted">
+                      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
                         <span>{article.source}</span>
                         <span className="text-muted-soft">/</span>
                         <span>{getCategoryLabel(article.category)}</span>
+                        <DiscussMenu
+                          story={{
+                            title: article.title,
+                            summary: article.summary,
+                            url: article.url,
+                            source: article.source,
+                            category: getCategoryLabel(article.category),
+                            publishedAt: current.date,
+                          }}
+                        />
                       </div>
                     </div>
                   </div>
