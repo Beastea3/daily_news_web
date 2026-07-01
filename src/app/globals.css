@@ -135,3 +135,77 @@ a {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+.discuss-menu {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.125rem;
+  font-size: 0.85em;
+}
+
+.discuss-trigger {
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0.65;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.discuss-trigger:hover,
+.discuss-trigger:focus-visible {
+  opacity: 1;
+}
+
+.discuss-popover {
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  right: 0;
+  margin-top: 0.15rem;
+  min-width: 180px;
+  padding: 0.4rem;
+  border: 1px solid var(--color-hairline);
+  border-radius: 0.375rem;
+  background: var(--color-surface-card);
+  color: var(--color-ink);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+}
+
+.discuss-popover::before {
+  content: "";
+  position: absolute;
+  top: -0.45rem;
+  left: 0;
+  right: 0;
+  height: 0.45rem;
+}
+
+.discuss-option {
+  display: block;
+  width: 100%;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 0.35rem 0.45rem;
+  cursor: pointer;
+  border-radius: 0.25rem;
+}
+
+.discuss-option:hover,
+.discuss-option:focus-visible {
+  text-decoration: underline;
+  background: var(--color-surface-soft);
+}
+
+.discuss-status {
+  margin-left: 0.4rem;
+  opacity: 0.7;
+  font-size: 0.9em;
+}
