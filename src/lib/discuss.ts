@@ -24,22 +24,11 @@ export function isMobileDevice(): boolean {
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }
 
-/**
- * Desktop: long / multiline prompts use the hash so the web UI can prefill.
- * Mobile: keep ?q= query params so universal links can open the native app.
- */
+/** ChatGPT reads ?prompt= and ?q= from the query string; #?prompt= is ignored. */
 export function buildChatGptUrl(prompt: string, mobile = isMobileDevice()): string {
   const encoded = encodeURIComponent(prompt);
-
-  if (mobile) {
-    return `${CHATGPT_BASE_URL}?q=${encoded}`;
-  }
-
-  if (prompt.includes("\n") || encoded.length > 240) {
-    return `${CHATGPT_BASE_URL}#?prompt=${encoded}`;
-  }
-
-  return `${CHATGPT_BASE_URL}?prompt=${encoded}`;
+  const param = mobile ? "q" : "prompt";
+  return `${CHATGPT_BASE_URL}?${param}=${encoded}`;
 }
 
 function openExternalUrl(url: string) {

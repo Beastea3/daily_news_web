@@ -162,27 +162,13 @@ a {
 }
 
 .discuss-popover {
-  position: absolute;
-  z-index: 20;
-  top: 100%;
-  right: 0;
-  margin-top: 0.15rem;
-  min-width: 180px;
-  padding: 0.4rem;
+  z-index: 50;
+  padding: 0.35rem;
   border: 1px solid var(--color-hairline);
-  border-radius: 0.375rem;
+  border-radius: 0.5rem;
   background: var(--color-surface-card);
   color: var(--color-ink);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
-}
-
-.discuss-popover::before {
-  content: "";
-  position: absolute;
-  top: -0.45rem;
-  left: 0;
-  right: 0;
-  height: 0.45rem;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.14);
 }
 
 .discuss-option {
@@ -193,14 +179,15 @@ a {
   color: inherit;
   font: inherit;
   text-align: left;
-  padding: 0.35rem 0.45rem;
+  padding: 0.45rem 0.55rem;
   cursor: pointer;
-  border-radius: 0.25rem;
+  border-radius: 0.3rem;
+  white-space: nowrap;
 }
 
 .discuss-option:hover,
-.discuss-option:focus-visible {
-  text-decoration: underline;
+.discuss-option:focus-visible,
+.discuss-option[data-active] {
   background: var(--color-surface-soft);
 }
 

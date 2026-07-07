@@ -68,16 +68,8 @@ assert(
 
 function buildChatGptUrl(prompt, mobile = false) {
   const encoded = encodeURIComponent(prompt);
-
-  if (mobile) {
-    return `https://chatgpt.com/?q=${encoded}`;
-  }
-
-  if (prompt.includes("\n") || encoded.length > 240) {
-    return `https://chatgpt.com/#?prompt=${encoded}`;
-  }
-
-  return `https://chatgpt.com/?prompt=${encoded}`;
+  const param = mobile ? "q" : "prompt";
+  return `https://chatgpt.com/?${param}=${encoded}`;
 }
 
 const encoded = encodeURIComponent(fullPrompt);
@@ -88,9 +80,10 @@ assert(
 
 const chatgptUrl = buildChatGptUrl(fullPrompt, false);
 assert(
-  chatgptUrl.startsWith("https://chatgpt.com/#?prompt="),
-  "desktop multiline prompts should use hash prompt url"
+  chatgptUrl.startsWith("https://chatgpt.com/?prompt="),
+  "desktop prompts should use ?prompt= query param"
 );
+assert(!chatgptUrl.includes("#"), "desktop url must not use hash");
 assert(chatgptUrl.includes("OpenAI%20ships%20a%20new%20model"), "chatgpt url should include title");
 
 const mobileUrl = buildChatGptUrl(fullPrompt, true);
